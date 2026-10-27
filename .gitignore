@@ -2,3 +2,5 @@ flake.nix
 flake.lock
 .DS_Store
 /build/
+/third_party/boost_1_88_0/
+/third_party/boost_1_88_0.tar.bz2
