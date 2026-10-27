@@ -35,8 +35,20 @@ vector<int> solve(vector<command> cmds) {
 
 void pivotify(vector<vector<Rational>>& M, int i, int j) {
 	if(M[i][j] == 0 || M[i][j] == 1) return;
+
+	// make pivot 1
+	Rational pivot = M[i][j]; // != 0 by the above guard
 	for(int k = 0; k < M[0].size(); k++) {
-		M[i][k] =
+		M[i][k] /= pivot;
+	}
+
+	// subtract from other rows
+	for(int k = 0; k < M.size(); k++) {
+		if(k == i || M[k][j] == 0) continue;
+		Rational factor = M[k][j];
+		for(int l = 0; l < M[0].size(); l++) {
+			M[k][l] -= factor * M[i][l];
+		}
 	}
 }
 
