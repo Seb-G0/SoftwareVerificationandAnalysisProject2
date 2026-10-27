@@ -34,12 +34,14 @@ vector<int> solve(vector<command> cmds) {
 }
 
 void pivotify(vector<vector<Rational>>& M, int i, int j) {
-	if(M[i][j] == 0 || M[i][j] == 1) return;
+	if(M[i][j] == 0) return;
 
 	// make pivot 1
 	Rational pivot = M[i][j]; // != 0 by the above guard
-	for(int k = 0; k < M[0].size(); k++) {
-		M[i][k] /= pivot;
+	if(pivot != 1) {
+		for(int k = 0; k < M[0].size(); k++) {
+			M[i][k] /= pivot;
+		}
 	}
 
 	// subtract from other rows
