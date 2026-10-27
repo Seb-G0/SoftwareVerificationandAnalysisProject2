@@ -1,5 +1,6 @@
 #include <vector>
 #include <ratio>
+#include <algorithm>
 
 using namespace std;
 
@@ -55,11 +56,14 @@ void pivotify(vector<vector<Rational>>& M, int i, int j) {
 }
 
 // in: matrix representing LP tableau, all >=, with Z-row
-vector<int> simplex(vector<vector<Rational>>& M) {
+vector<Rational> simplex(vector<vector<Rational>>& M) {
 	// vector<int> soln
+	int N = M.size();
 	while(max of Z-row coeffs is > 0) {
 		// get col of max coeff in Z-row
+		int j = ranges::max_element(M[N-1].begin(), M[N-1].end()) - M[N-1].begin();
 		// get row of min ratio of RHS over new pivot coeff
+		for(int 
 		// make that 1
 	}
 }
