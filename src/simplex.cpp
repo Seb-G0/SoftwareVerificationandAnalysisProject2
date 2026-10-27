@@ -1,3 +1,4 @@
+#include "rational.h"
 #include <vector>
 #include <ratio>
 
@@ -8,9 +9,10 @@ struct command;
 // take vector of commands and produce LP matrix
 // last col corresponds to the y variable introduced to handle strict inequalities
 vector<vector<Rational>> make_matrix(vector<command> cmds) {
+
 	// count vars
 	// count eqns, equalities count for two
-	// vars + # eqns = total vars
+	// vars + # eqns = total vars 
 	// (?) create dict from var name to index <- this guy needs to make it back to caller
 	// iterate over cmds and append to output 2d vec:
 	//     <= maps directly

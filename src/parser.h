@@ -1,10 +1,8 @@
 #pragma once
-#include <boost/multiprecision/cpp_int.hpp>
+#include "rational.h"
 #include <map>
 #include <string>
 #include <vector>
-
-using Rational = boost::multiprecision::cpp_rational;
 
 struct Constraint {
     std::map<std::string, Rational> coefficients;
