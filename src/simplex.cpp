@@ -1,28 +1,89 @@
-#include "rational.h"
-#include <vector>
-#include <ratio>
+#include "simplex.h"
 #include <algorithm>
+#include <set>
+#include <stdexcept>
 
 using namespace std;
 
-struct command;
 
-// take vector of commands and produce LP matrix
-// last col corresponds to the y variable introduced to handle strict inequalities
-vector<vector<Rational>> make_matrix(vector<command> cmds) {
+vector<vector<Rational>> make_matrix(vector<Constraint>& cons, map<string, int>& cols) {
+	cols.clear();
+	set<string> names;
+	for (const auto& con : cons)
+		for (const auto& [name, coeff] : con.coefficients)
+			names.insert(name);
 
-	// count vars
-	// count eqns, equalities count for two
-	// vars + # eqns = total vars 
-	// (?) create dict from var name to index <- this guy needs to make it back to caller
-	// iterate over cmds and append to output 2d vec:
-	//     <= maps directly
-	//     >= needs to be flipped
-	//     < gains y on LHS
-	//     > gets flipped and gains y on LHS
-	//     = becomes >= and <= (flip)
-	// append Z-row (just the y var)
+	// Avoid collisions with actual input names such as xprime or slack1.
+	auto extra_column = [&](string name) {
+		while (names.count(name) || cols.count(name)) name += "prime";
+		int index = cols.size();
+		cols[name] = index;
+	};
+	for (const auto& name : names) {
+		int index = cols.size();
+		cols[name] = index;
+		extra_column(name + "prime");
+	}
+
+	int firstSlack = cols.size();
+	int rows = 2; // epsilon >= 0 and epsilon <= 1
+	for (const auto& con : cons) rows += con.op == "=" ? 2 : 1;
+	for (int i = 0; i < rows; ++i) extra_column("slack" + to_string(i + 1));
+
+	int auxCol = cols.size();
+	extra_column("x0");
+	int epsCol = cols.size();
+	int rhsCol = epsCol + 1;
+
+	vector<vector<Rational>> matrix;
+
+	auto add_row = [&](const Constraint& con, int sign, bool strict){
+		vector<Rational> row(cols.size() + 2, 0);
+
+		for (const auto& [name, coeff] : con.coefficients){
+			int column = cols.at(name);
+			row[column] = sign * coeff;
+			row[column + 1] = -sign * coeff;
+		}
+
+		row[firstSlack + matrix.size()] = 1;
+		row[auxCol] = -1;
+		row[epsCol] = strict ? 1 : 0;
+		row[rhsCol] = sign * con.rhs;
+
+		matrix.push_back(row);
+	};
+
+	for (const auto& con : cons){
+		if (con.op == "<=" || con.op == "<"){
+			add_row(con, 1, con.op == "<");
+		}
+		else if (con.op == ">=" || con.op == ">"){
+			add_row(con, -1, con.op == ">");
+		}
+		else if (con.op == "=") {
+			add_row(con, 1, false);
+			add_row(con, -1, false);
+		}
+	}
+
+	for (int sign : {-1, 1}) {
+		vector<Rational> row(cols.size() + 2, 0);
+		row[firstSlack + matrix.size()] = 1;
+		row[auxCol] = -1;
+		row[epsCol] = sign;
+		row[rhsCol] = sign == 1 ? 1 : 0;
+		matrix.push_back(row);
+	}
+
+	vector<Rational> objective(cols.size() + 2, 0);
+	objective[auxCol] = 1;
+	matrix.push_back(objective);
+
+	return matrix;
 }
+
+/* Unfinished solver methods; enable them when their implementations are ready.
 
 // removes fractions from matrix by multiplying by LCM of denominators
 int defraction(vector<vector<Rational>>& M) {
@@ -35,6 +96,7 @@ vector<int> solve(vector<command> cmds) {
 	// TODO
 	return vector<Rational>();
 }
+*/
 
 void pivotify(vector<vector<Rational>>& M, int i, int j) {
 	if(M[i][j] == 0) return;

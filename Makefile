@@ -4,7 +4,7 @@
 all: third_party/boost_1_88_0/.ready third_party/cpp-peglib/peglib.h third_party/cpp-peglib/LICENSE
 	mkdir -p build
 	c++ -std=c++17 -Ithird_party/cpp-peglib -Ithird_party/boost_1_88_0 \
-	    src/main.cpp src/parser.cpp -o build/parser -pthread
+	    src/main.cpp src/parser.cpp src/simplex.cpp -o build/parser -pthread
 	./build/parser benchmarks/sat/*.txt benchmarks/unsat/*.txt
 
 third_party/boost_1_88_0/.ready:
