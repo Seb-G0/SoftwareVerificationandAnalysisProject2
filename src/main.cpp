@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "simplex.h"
 
 #include <fstream>
 #include <iostream>
@@ -23,23 +23,34 @@ int main(int argc, char* argv[]) {
                                    std::istreambuf_iterator<char>());
             if (file.bad()) throw std::runtime_error("cannot read file");
 
-            const auto constraints = parse_constraints(text);
-            std::cout << "[\n";
-            for (size_t j = 0; j < constraints.size(); ++j) {
-                const auto& constraint = constraints[j];
-                std::cout << "  {\"coefficients\": {";
-                bool first = true;
-                for (const auto& [variable, coefficient] : constraint.coefficients) {
-                    if (!first) std::cout << ", ";
-                    std::cout << '"' << variable << "\": \"" << coefficient << '"';
-                    first = false;
+            auto constraints = parse_constraints(text);
+            std::map<std::string, int> columns;
+            const auto matrix = make_matrix(constraints, columns);
+
+            std::cout << "{\n  \"columns\": {";
+            bool first = true;
+            for (const auto& [name, index] : columns) {
+                if (!first) std::cout << ", ";
+                std::cout << '"' << name << "\": " << index;
+                first = false;
+            }
+            std::cout << "},\n  \"phase\": \"I\""
+                      << ",\n  \"auxiliary_column\": " << columns.size() - 1
+                      << ",\n  \"epsilon_column\": " << columns.size()
+                      << ",\n  \"rhs_column\": " << columns.size() + 1
+                      << ",\n  \"objective_row\": " << matrix.size() - 1
+                      << ",\n  \"matrix\": [\n";
+            for (size_t i = 0; i < matrix.size(); ++i) {
+                std::cout << "    [";
+                for (size_t j = 0; j < matrix[i].size(); ++j) {
+                    if (j) std::cout << ", ";
+                    std::cout << '"' << matrix[i][j] << '"';
                 }
-                std::cout << "}, \"op\": \"" << constraint.op
-                          << "\", \"rhs\": \"" << constraint.rhs << "\"}";
-                if (j + 1 < constraints.size()) std::cout << ',';
+                std::cout << ']';
+                if (i + 1 < matrix.size()) std::cout << ',';
                 std::cout << '\n';
             }
-            std::cout << "]\n";
+            std::cout << "  ]\n}\n";
         } catch (const std::exception& error) {
             std::cerr << argv[i] << ": " << error.what() << '\n';
             failed = true;
