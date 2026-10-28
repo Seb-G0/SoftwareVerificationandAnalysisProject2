@@ -6,11 +6,16 @@ all: third_party/boost_1_88_0/.ready third_party/cpp-peglib/peglib.h third_party
 	c++ -std=c++17 -Ithird_party/cpp-peglib -Ithird_party/boost_1_88_0 \
 	    src/main.cpp src/parser.cpp src/simplex.cpp -o build/simplex -pthread
 
-test: 
-	@for f in benchmarks/sat/*.txt benchmarks/unsat/*.txt; do \
-		echo "=== $$f ==="; \
-		./build/simplex "$$f"; \
-	done
+test: all
+	@failed=0; \
+	for f in benchmarks/sat/*.txt benchmarks/unsat/*.txt; do \
+		expected=SAT; case "$$f" in benchmarks/unsat/*) expected=UNSAT;; esac; \
+		if output=$$(./build/simplex "$$f"); then \
+			if [ "$$output" = "UNSAT" ]; then actual=UNSAT; else actual=SAT; fi; \
+			if [ "$$actual" = "$$expected" ]; then echo "PASS: $$actual $$f"; \
+			else echo "FAIL: $$f (expected $$expected, got $$actual)"; failed=1; fi; \
+		else echo "ERROR: $$f"; failed=1; fi; \
+	done; exit $$failed
 
 third_party/boost_1_88_0/.ready:
 	mkdir -p third_party

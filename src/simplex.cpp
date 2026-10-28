@@ -81,7 +81,7 @@ vector<vector<Rational>> make_matrix(vector<Constraint>& cons, map<string, int>&
 	}
 
 	vector<Rational> objective(cols.size() + 2, 0);
-	objective[auxCol] = -1;
+	objective[auxCol] = 1; // z + x0 = 0: maximize -x0
 	matrix.push_back(objective);
 
 	vector<Rational> epsRow(cols.size() + 2, 0);
@@ -124,18 +124,18 @@ void pivotify(vector<vector<Rational>>& M, int i, int j) {
 	}
 }
 
-// in: matrix representing LP tableau, all >=, with Z-row
+// Objective coefficients are on the LHS: a negative coefficient improves z.
 void simplex(vector<vector<Rational>>& M, vector<int>& B, int ignoreRow, int ignoreCol) {
     int n = M.size();
     int m = M[0].size();
     int zind = (ignoreRow == n-1 ? n-2 : n-1);
     
     while(true) {
-        // get col of max coeff in Z-row
+        // Bland's rule: choose the lowest-index improving column.
         int j = -1;
         for(int k = 0; k < m-1; k++) {
             if(k == ignoreCol) continue;
-            if(M[zind][k] > 0) {
+            if(M[zind][k] < 0) {
                 j = k;
                 break;
             }
@@ -149,7 +149,7 @@ void simplex(vector<vector<Rational>>& M, vector<int>& B, int ignoreRow, int ign
         for(int k = 0; k < n; k++) {
             if (k == zind || k == ignoreRow || M[k][j] <= 0) continue;
             Rational ts = M[k][m-1] / M[k][j];
-            if (i == -1 || ts < min) {
+            if (i == -1 || ts < min || (ts == min && B[k] < B[i])) {
                 min = ts;
                 i = k;
             }
@@ -193,6 +193,27 @@ void solve(vector<Constraint> cmds) {
 		cout << "UNSAT" << endl;
 		return;
 	}
+
+	// Phase II must keep x0 at zero, even if it is still basic after Phase I.
+	for (int row = 0; row < B.size(); ++row) {
+		if (B[row] != auxCol) continue;
+		int column = -1;
+		for (int j = 0; j < m-1; ++j) {
+			if (j != auxCol && M[row][j] != 0) {
+				column = j;
+				break;
+			}
+		}
+		if (column != -1) {
+			pivotify(M, row, column);
+			B[row] = column;
+		} else {
+			M.erase(M.begin() + row);
+			B.erase(B.begin() + row);
+		}
+		break;
+	}
+	n = M.size();
 	
 	// simplex phase 2: optimize epsilon row (n-1), ignore objective row (n-2) and aux column
 	simplex(M, B, n-2, auxCol);
