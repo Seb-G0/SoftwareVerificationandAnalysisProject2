@@ -58,14 +58,35 @@ void pivotify(vector<vector<Rational>>& M, int i, int j) {
 }
 
 // in: matrix representing LP tableau, all >=, with Z-row
-vector<Rational> simplex(vector<vector<Rational>>& M) {
-	// vector<int> soln
-	int N = M.size();
-	while(max of Z-row coeffs is > 0) {
+void simplex(vector<vector<Rational>>& M) {
+	int n = M.size();
+	int m = M[0].size();
+	while(true) {
 		// get col of max coeff in Z-row
-		int j = ranges::max_element(M[N-1].begin(), M[N-1].end()) - M[N-1].begin();
+		int j = -1;
+		for(int k = 0; k < m-1; k++) {
+			if(M[n-1][k] > 0) {
+				j = k;
+				break;
+			}
+		}
+
+		if(j == -1) break;
+
 		// get row of min ratio of RHS over new pivot coeff
-		for(int 
-		// make that 1
+		int i = -1;
+		Rational min = 0;
+		for(int k = 0; k < n-1; k++) {
+			if (M[k][j] <= 0) continue;
+			Rational ts = M[k][m-1] / M[k][j];
+			if (i == -1 || ts < min) {
+				min = ts;
+				i = k;
+			}
+		}
+
+		if(i == -1) throw std::runtime_error("LP UNBOUNDED");
+
+		pivotify(M, i, j);
 	}
 }
