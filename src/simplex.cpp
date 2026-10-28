@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <set>
 #include <stdexcept>
+#include <iostream>
 
 using namespace std;
 
@@ -83,20 +84,50 @@ vector<vector<Rational>> make_matrix(vector<Constraint>& cons, map<string, int>&
 	return matrix;
 }
 
-/* Unfinished solver methods; enable them when their implementations are ready.
+vector<Rational> extract_soln(vector<vector<Rational>>& M, vector<int>& B) {
+	int m = M[0].size();
+	vector<Rational> out(m-1, 0);
 
-// removes fractions from matrix by multiplying by LCM of denominators
-int defraction(vector<vector<Rational>>& M) {
+	for(int j = 0; j < B.size(); j++) {
+		out[B[j]] = M[j][m-1];
+	}
+
+	return out;
 }
 
-vector<int> solve(vector<command> cmds) {
-	// vec<vec<int>> M = make_matrix(cmds);
-	// defraction(M); => clean LP problem
+void solve(vector<command> cmds) {
+	vector<vector<Rational>> M = make_matrix(cmds);
+	int n = M.size();
+	int m = M[0].size();
 
-	// TODO
-	return vector<Rational>();
+	// find most negative RHS
+	int i = -1;
+	Rational min_rhs = 0;
+	for(int j = 0; j < n-2; j++) {
+		if(M[j][m-1] < min_rhs) {
+			min_rhs = M[j][m-1];
+			i = j;
+		}
+	}
+
+	// if negative RHS, pivotify most negative one
+	if(max < 0) {
+		pivotify(M, i, m-2);
+		B[i] = m-2;
+	}
+
+	// simplex phase 1
+	simplex(M, B, n-2, -1);
+
+	if(M[n-1][m-1] != 0) {
+		cout << "UNSAT" << endl;
+		return;
+	}
+	
+	simplex(M, B, n-1, m-2);
+
+	vector<Rational> raw_soln = extract_soln(M, B);
 }
-*/
 
 void pivotify(vector<vector<Rational>>& M, int i, int j) {
 	if(M[i][j] == 0) return;
@@ -120,35 +151,39 @@ void pivotify(vector<vector<Rational>>& M, int i, int j) {
 }
 
 // in: matrix representing LP tableau, all >=, with Z-row
-void simplex(vector<vector<Rational>>& M) {
-	int n = M.size();
-	int m = M[0].size();
-	while(true) {
-		// get col of max coeff in Z-row
-		int j = -1;
-		for(int k = 0; k < m-1; k++) {
-			if(M[n-1][k] > 0) {
-				j = k;
-				break;
-			}
-		}
+void simplex(vector<vector<Rational>>& M, vector<int>& B, int ignoreRow, int ignoreCol) {
+    int n = M.size();
+    int m = M[0].size();
+    int zind = (ignoreRow == n-1 ? n-2 : n-1);
+    
+    while(true) {
+        // get col of max coeff in Z-row
+        int j = -1;
+        for(int k = 0; k < m-1; k++) {
+            if(k == ignoreCol) continue;
+            if(M[zind][k] > 0) {
+                j = k;
+                break;
+            }
+        }
 
-		if(j == -1) break;
+        if(j == -1) break;
 
-		// get row of min ratio of RHS over new pivot coeff
-		int i = -1;
-		Rational min = 0;
-		for(int k = 0; k < n-1; k++) {
-			if (M[k][j] <= 0) continue;
-			Rational ts = M[k][m-1] / M[k][j];
-			if (i == -1 || ts < min) {
-				min = ts;
-				i = k;
-			}
-		}
+        // get row of min ratio of RHS over new pivot coeff
+        int i = -1;
+        Rational min = 0;
+        for(int k = 0; k < n; k++) {
+            if (k == zind || k == ignoreRow || M[k][j] <= 0) continue;
+            Rational ts = M[k][m-1] / M[k][j];
+            if (i == -1 || ts < min) {
+                min = ts;
+                i = k;
+            }
+        }
 
-		if(i == -1) throw std::runtime_error("LP UNBOUNDED");
+        if(i == -1) throw std::runtime_error("LP UNBOUNDED");
 
-		pivotify(M, i, j);
-	}
+        B[i] = j; 
+        pivotify(M, i, j);
+    }
 }
