@@ -7,8 +7,9 @@
 using namespace std;
 
 
-vector<vector<Rational>> make_matrix(vector<Constraint>& cons, map<string, int>& cols) {
+vector<vector<Rational>> make_matrix(vector<Constraint>& cons, map<string, int>& cols, vector<int>& basis) {
 	cols.clear();
+	basis.clear();
 	set<string> names;
 	for (const auto& con : cons)
 		for (const auto& [name, coeff] : con.coefficients)
@@ -52,6 +53,7 @@ vector<vector<Rational>> make_matrix(vector<Constraint>& cons, map<string, int>&
 		row[epsCol] = strict ? 1 : 0;
 		row[rhsCol] = sign * con.rhs;
 
+		basis.push_back(firstSlack + matrix.size());
 		matrix.push_back(row);
 	};
 
@@ -74,12 +76,17 @@ vector<vector<Rational>> make_matrix(vector<Constraint>& cons, map<string, int>&
 		row[auxCol] = -1;
 		row[epsCol] = sign;
 		row[rhsCol] = sign == 1 ? 1 : 0;
+		basis.push_back(firstSlack + matrix.size());
 		matrix.push_back(row);
 	}
 
 	vector<Rational> objective(cols.size() + 2, 0);
-	objective[auxCol] = 1;
+	objective[auxCol] = -1;
 	matrix.push_back(objective);
+
+	vector<Rational> epsRow(cols.size() + 2, 0);
+	epsRow[epsCol] = -1;
+	matrix.push_back(epsRow);
 
 	return matrix;
 }
@@ -95,39 +102,6 @@ vector<Rational> extract_soln(vector<vector<Rational>>& M, vector<int>& B) {
 	return out;
 }
 
-void solve(vector<command> cmds) {
-	vector<vector<Rational>> M = make_matrix(cmds);
-	int n = M.size();
-	int m = M[0].size();
-
-	// find most negative RHS
-	int i = -1;
-	Rational min_rhs = 0;
-	for(int j = 0; j < n-2; j++) {
-		if(M[j][m-1] < min_rhs) {
-			min_rhs = M[j][m-1];
-			i = j;
-		}
-	}
-
-	// if negative RHS, pivotify most negative one
-	if(max < 0) {
-		pivotify(M, i, m-2);
-		B[i] = m-2;
-	}
-
-	// simplex phase 1
-	simplex(M, B, n-2, -1);
-
-	if(M[n-1][m-1] != 0) {
-		cout << "UNSAT" << endl;
-		return;
-	}
-	
-	simplex(M, B, n-1, m-2);
-
-	vector<Rational> raw_soln = extract_soln(M, B);
-}
 
 void pivotify(vector<vector<Rational>>& M, int i, int j) {
 	if(M[i][j] == 0) return;
@@ -186,4 +160,60 @@ void simplex(vector<vector<Rational>>& M, vector<int>& B, int ignoreRow, int ign
         B[i] = j; 
         pivotify(M, i, j);
     }
+}
+
+void solve(vector<Constraint> cmds) {
+	map<string, int> cols;
+	vector<int> B;
+	vector<vector<Rational>> M = make_matrix(cmds, cols, B);
+	int n = M.size();
+	int m = M[0].size();
+	int auxCol = m - 3;
+
+	// find most negative RHS
+	int i = -1;
+	Rational min_rhs = 0;
+	for(int j = 0; j < n-2; j++) {
+		if(M[j][m-1] < min_rhs) {
+			min_rhs = M[j][m-1];
+			i = j;
+		}
+	}
+
+	// if negative RHS, pivotify most negative one
+	if(min_rhs < 0) {
+		pivotify(M, i, auxCol);
+		B[i] = auxCol;
+	}
+
+	// simplex phase 1: optimize objective row (n-2), ignore epsilon row (n-1)
+	simplex(M, B, n-1, -1);
+
+	if(M[n-2][m-1] != 0) {
+		cout << "UNSAT" << endl;
+		return;
+	}
+	
+	// simplex phase 2: optimize epsilon row (n-1), ignore objective row (n-2) and aux column
+	simplex(M, B, n-2, auxCol);
+
+	if(M[n-1][m-1] <= 0) {
+		cout << "UNSAT" << endl;
+		return;
+	}
+
+	vector<Rational> raw_soln = extract_soln(M, B);
+
+	// Collect original variable names from the constraints
+	set<string> names;
+	for (const auto& con : cmds)
+		for (const auto& [name, coeff] : con.coefficients)
+			names.insert(name);
+
+	// Print each original variable's value: x = x_pos - x_neg
+	for (const auto& name : names) {
+		int col = cols.at(name);
+		Rational val = raw_soln[col] - raw_soln[col + 1];
+		cout << name << "=" << val << endl;
+	}
 }
